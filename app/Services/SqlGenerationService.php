@@ -16,6 +16,7 @@ use StringHelper;
 class SqlGenerationService extends BaseService
 {
 
+
     /**
      *
      */
@@ -30,7 +31,7 @@ class SqlGenerationService extends BaseService
      */
     private function tableClose(Table $table) {
         $charset = explode('_', $table->getCollation())[0];
-        return sprintf(' CHARACTER SET %s COLLATE %s ROW_FORMAT=%s  ENGINE=%s;', $charset, $table->getCollation(), $table->getRowFormat(), $table->getEngine()) . "\n";
+        return sprintf(config('sql.table.close'), $charset, $table->getCollation(), $table->getRowFormat(), $table->getEngine()) . "\n";
     }
 
     /**
@@ -41,7 +42,7 @@ class SqlGenerationService extends BaseService
     public function createTable(Table $table) {
         $sql = "";
 
-        $sql .= sprintf('CREATE TABLE IF NOT EXISTS `%s` (', $table->getName());
+        $sql .= sprintf(config('sql.table.create'), $table->getName());
 
         foreach($table->getColumns() as $column_name => $column) {
             $sql .= "\n";
@@ -77,7 +78,7 @@ class SqlGenerationService extends BaseService
     public function dropTable(Table $table) {
         $sql = '';
 
-        $sql .= sprintf('DROP TABLE `%s`', $table->getName());
+        $sql .= sprintf(config('sql.table.drop'), $table->getName());
         $sql .= ";";
         $sql .= "\n";
         return $sql;
@@ -94,7 +95,7 @@ class SqlGenerationService extends BaseService
         if($column->getAutoIncrement()) {
             $suffix = 'PRIMARY KEY';
         }
-        $sql = sprintf('ALTER TABLE `%s` ADD %s %s;', $table->getName(), $this->column($column), $suffix);
+        $sql = sprintf(config('sql.column.add'), $table->getName(), $this->column($column), $suffix);
         $sql .= "\n";
         return $sql;
     }
@@ -106,7 +107,7 @@ class SqlGenerationService extends BaseService
      * @return string
      */
     public function dropColumn(Table $table, Column $column) {
-        $sql = sprintf('ALTER TABLE `%s` DROP `%s`;', $table->getName(), $column->getName());
+        $sql = sprintf(config('sql.column.drop'), $table->getName(), $column->getName());
         $sql .= "\n";
         return $sql;
     }
@@ -123,7 +124,7 @@ class SqlGenerationService extends BaseService
         } else {
             $table_name = $table;
         }
-        $sql = sprintf('DROP INDEX `%s` ON `%s`;', $index->getName(), $table_name);
+        $sql = sprintf(config('sql.index.drop'), $index->getName(), $table_name);
         $sql .= "\n";
         return $sql;
     }
@@ -140,7 +141,7 @@ class SqlGenerationService extends BaseService
         } else {
             $table_name = $table;
         }
-        $sql = sprintf('ALTER TABLE `%s` DROP FOREIGN KEY `%s`;', $table_name, $constraint->getName());
+        $sql = sprintf(config('sql.constraint.drop'), $table_name, $constraint->getName());
         $sql .= "\n";
         return $sql;
     }
@@ -191,10 +192,10 @@ class SqlGenerationService extends BaseService
             $defs['default'] = '';
         }
 
-        $sql = StringHelper::named('`%(name)s` %(type)s %(null)s %(auto_increment)s %(suffix)s %(default)s %(comment)s', $defs);
+        $sql = StringHelper::named(config('sql.table.definition'), $defs);
 
         if($table_name) {
-            $prepend = StringHelper::named('ALTER TABLE `%(table_name)s` CHANGE `%(original_name)s`', $defs);
+            $prepend = StringHelper::named(config('sql.table.alter'), $defs);
             $sql = $prepend . ' ' . $sql;
         }
 
@@ -244,7 +245,7 @@ class SqlGenerationService extends BaseService
     public function renameTable(Table $destination_table, $new_name) {
         $old_name = $destination_table->getName();
 
-        $column_def = sprintf('RENAME TABLE `%s` TO `%s`', $new_name, $old_name)  . "; \n";
+        $column_def = sprintf(config('sql.table.rename'), $new_name, $old_name)  . "; \n";
 
         return $column_def;
     }
@@ -264,21 +265,15 @@ class SqlGenerationService extends BaseService
         $columns = "(`".implode("`,`", $source_index->getColumns())."`)";
 
         if($source_index->getPrimary()) {
-            $sql = sprintf('ALTER TABLE `%s` DROP PRIMARY KEY,  ADD PRIMARY KEY %s;', $table_name, $columns);
+            $sql = sprintf(config('sql.index.alter_primary_key'), $table_name, $columns);
         } elseif($source_index->getUnique()) {
-            $sql = sprintf('ALTER TABLE `%s` DROP INDEX `%s`, ADD UNIQUE KEY `%s` %s;', $table_name, $destination_index->getName(), $source_index->getName(), $columns);
+            $sql = sprintf(config('sql.index.alter_unique_key'), $table_name, $destination_index->getName(), $source_index->getName(), $columns);
         } else {
-            $sql = sprintf('ALTER TABLE `%s` DROP INDEX `%s`,  ADD INDEX `%s`%s;', $table_name, $destination_index->getName(), $source_index->getName(), $columns);
+            $sql = sprintf(config('sql.index.alter_index'), $table_name, $destination_index->getName(), $source_index->getName(), $columns);
         }
         $sql .= "\n";
 
         return $sql;
-//
-//        // First drop the old index
-//        $index_def = $this->dropIndex($table_name, $destination_index);
-//        // Then create a new index (there's no other way in MySQL)
-//        $index_def .= $this->addIndex($table_name, $source_index);
-        return $index_def;
     }
 
     /**
@@ -309,13 +304,13 @@ class SqlGenerationService extends BaseService
             case 'collation':
                 $collation = $new_value;
                 $character_set = explode('_', $new_value)[0];
-                $sql = sprintf('ALTER TABLE `%s` CONVERT TO CHARACTER SET %s COLLATE %s;', $table->getName(), $character_set, $collation);
+                $sql = sprintf(config('sql.table.option.alter_collation'), $table->getName(), $character_set, $collation);
                 break;
             case 'row_format':
-                $sql = sprintf('ALTER TABLE `%s` ROW_FORMAT=%s;', $table->getName(), $new_value);
+                $sql = sprintf(config('sql.table.option.alter_row_format'), $table->getName(), $new_value);
                 break;
             case 'engine':
-                $sql = sprintf('ALTER TABLE `%s` ENGINE=%s;', $table->getName(), $new_value);
+                $sql = sprintf(config('sql.table.option.alter_engine'), $table->getName(), $new_value);
                 break;
         }
         $sql .= "\n";
@@ -339,11 +334,11 @@ class SqlGenerationService extends BaseService
         $columns = "(`".implode("`,`", $index->getColumns())."`)";
 
         if($index->getPrimary()) {
-            $sql = sprintf('ALTER TABLE `%s` ADD PRIMARY KEY %s;', $table_name, $columns);
+            $sql = sprintf(config('sql.index.add_primary_key'), $table_name, $columns);
         } elseif($index->getUnique()) {
-            $sql = sprintf('ALTER TABLE `%s` ADD UNIQUE KEY `%s` %s;', $table_name, $index->getName(), $columns);
+            $sql = sprintf(config('sql.index.add_unique_key'), $table_name, $index->getName(), $columns);
         } else {
-            $sql = sprintf('ALTER TABLE `%s` ADD KEY `%s` %s;', $table_name, $index->getName(), $columns);
+            $sql = sprintf(config('sql.index.add_index'), $table_name, $index->getName(), $columns);
         }
         $sql .= "\n";
 
@@ -366,7 +361,7 @@ class SqlGenerationService extends BaseService
         $local_columns = "(`".implode("`,`", $constraint->getLocalColumns())."`)";
         $foreign_columns = "(`".implode("`,`", $constraint->getForeignColumns())."`)";
 
-        $sql = sprintf('ALTER TABLE `%s` ADD CONSTRAINT `%s` FOREIGN KEY %s REFERENCES `%s`%s ON DELETE %s ON UPDATE %s;',
+        $sql = sprintf(config('sql.constraint.add'),
             $table_name, $constraint->getName(), $local_columns, $constraint->getForeignTableName(), $foreign_columns, $constraint->getOnDelete(), $constraint->getOnUpdate());
 
         $sql .= "\n";
@@ -383,11 +378,11 @@ class SqlGenerationService extends BaseService
         $columns = "(`".implode("`,`", $index->getColumns())."`)";
 
         if($index->getPrimary()) {
-            $sql = sprintf('PRIMARY KEY %s', $columns);
+            $sql = sprintf(config('sql.index.implicit.primary'), $columns);
         } elseif($index->getUnique()) {
-            $sql = sprintf('UNIQUE KEY `%s` %s', $index->getName(), $columns);
+            $sql = sprintf(config('sql.index.implicit.unique'), $index->getName(), $columns);
         } else {
-            $sql = sprintf('KEY `%s` %s', $index->getName(), $columns);
+            $sql = sprintf(config('sql.index.implicit.key'), $index->getName(), $columns);
         }
 
         return $sql;
