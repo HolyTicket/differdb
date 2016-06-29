@@ -10,13 +10,6 @@ use Illuminate\Database\Eloquent\Model as Eloquent;
 class Deploy extends Eloquent
 {
     /**
-     * @var array $fillable Contains the database attributes that are mass assignable
-     */
-    protected $fillable = [
-        'name', 'email', 'password',
-    ];
-
-    /**
      * Get the changes of this deployment
      * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
